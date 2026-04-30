@@ -1,0 +1,831 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Flow xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>59.0</apiVersion>
+    <description>Calculates ARR, TCV, and multi-year ARR breakdowns on a Quote by looping over all QuoteLineItems. Called as a subflow from RRV_Run_ARR_Calcs.</description>
+    <environments>Default</environments>
+    <interviewLabel>RRV Calculate Quote ARR {!$Flow.CurrentDateTime}</interviewLabel>
+    <label>RRV Calculate Quote ARR</label>
+    <processMetadataValues>
+        <name>BuilderType</name>
+        <value><stringValue>LightningFlowBuilder</stringValue></value>
+    </processMetadataValues>
+    <processType>AutoLaunchedFlow</processType>
+    <start>
+        <locationX>50</locationX>
+        <locationY>50</locationY>
+        <connector>
+            <targetReference>getQuoteLines</targetReference>
+        </connector>
+    </start>
+    <status>Active</status>
+
+    <!-- ═══════════════════════════════════════
+         ASSIGNMENTS (all grouped)
+    ═══════════════════════════════════════ -->
+
+    <!-- Loop 1: Multiplier assignments -->
+    <assignments>
+        <name>assignMult12</name>
+        <label>Multiplier = 12 (Monthly)</label>
+        <locationX>650</locationX>
+        <locationY>0</locationY>
+        <assignmentItems>
+            <assignToReference>varMultiplier</assignToReference>
+            <operator>Assign</operator>
+            <value><numberValue>12</numberValue></value>
+        </assignmentItems>
+        <connector><targetReference>decUpdateStart</targetReference></connector>
+    </assignments>
+
+    <assignments>
+        <name>assignMult4</name>
+        <label>Multiplier = 4 (Quarterly)</label>
+        <locationX>650</locationX>
+        <locationY>80</locationY>
+        <assignmentItems>
+            <assignToReference>varMultiplier</assignToReference>
+            <operator>Assign</operator>
+            <value><numberValue>4</numberValue></value>
+        </assignmentItems>
+        <connector><targetReference>decUpdateStart</targetReference></connector>
+    </assignments>
+
+    <assignments>
+        <name>assignMult2</name>
+        <label>Multiplier = 2 (SemiAnnual)</label>
+        <locationX>650</locationX>
+        <locationY>160</locationY>
+        <assignmentItems>
+            <assignToReference>varMultiplier</assignToReference>
+            <operator>Assign</operator>
+            <value><numberValue>2</numberValue></value>
+        </assignmentItems>
+        <connector><targetReference>decUpdateStart</targetReference></connector>
+    </assignments>
+
+    <assignments>
+        <name>assignMult1</name>
+        <label>Multiplier = 1 (Annual)</label>
+        <locationX>650</locationX>
+        <locationY>240</locationY>
+        <assignmentItems>
+            <assignToReference>varMultiplier</assignToReference>
+            <operator>Assign</operator>
+            <value><numberValue>1</numberValue></value>
+        </assignmentItems>
+        <connector><targetReference>decUpdateStart</targetReference></connector>
+    </assignments>
+
+    <!-- Loop 1: Update quote start date -->
+    <assignments>
+        <name>assignUpdateStart</name>
+        <label>Set Quote Start Date</label>
+        <locationX>950</locationX>
+        <locationY>0</locationY>
+        <assignmentItems>
+            <assignToReference>varQuoteStart</assignToReference>
+            <operator>Assign</operator>
+            <value><elementReference>loopLines1.StartDate</elementReference></value>
+        </assignmentItems>
+        <connector><targetReference>assignTotals</targetReference></connector>
+    </assignments>
+
+    <!-- Loop 1: Accumulate TotalARR + TCV -->
+    <assignments>
+        <name>assignTotals</name>
+        <label>Add to Total ARR and TCV</label>
+        <locationX>1100</locationX>
+        <locationY>50</locationY>
+        <assignmentItems>
+            <assignToReference>varTotalARR</assignToReference>
+            <operator>Add</operator>
+            <value><elementReference>frmLineARR1</elementReference></value>
+        </assignmentItems>
+        <assignmentItems>
+            <assignToReference>varTCV</assignToReference>
+            <operator>Add</operator>
+            <value><elementReference>loopLines1.NetTotalPrice</elementReference></value>
+        </assignmentItems>
+        <connector><targetReference>decClassify</targetReference></connector>
+    </assignments>
+
+    <!-- Loop 1: Classification bucket assignments -->
+    <assignments>
+        <name>assignAddNew</name>
+        <label>Add to New ARR</label>
+        <locationX>1400</locationX>
+        <locationY>0</locationY>
+        <assignmentItems>
+            <assignToReference>varNewARR</assignToReference>
+            <operator>Add</operator>
+            <value><elementReference>frmLineARR1</elementReference></value>
+        </assignmentItems>
+        <connector><targetReference>loopLines1</targetReference></connector>
+    </assignments>
+
+    <assignments>
+        <name>assignAddRenewed</name>
+        <label>Add to Renewed ARR</label>
+        <locationX>1400</locationX>
+        <locationY>80</locationY>
+        <assignmentItems>
+            <assignToReference>varRenewedARR</assignToReference>
+            <operator>Add</operator>
+            <value><elementReference>frmLineARR1</elementReference></value>
+        </assignmentItems>
+        <connector><targetReference>loopLines1</targetReference></connector>
+    </assignments>
+
+    <assignments>
+        <name>assignAddUpsell</name>
+        <label>Add to Upsell Amount</label>
+        <locationX>1400</locationX>
+        <locationY>160</locationY>
+        <assignmentItems>
+            <assignToReference>varUpsell</assignToReference>
+            <operator>Add</operator>
+            <value><elementReference>frmUpsellARR1</elementReference></value>
+        </assignmentItems>
+        <connector><targetReference>loopLines1</targetReference></connector>
+    </assignments>
+
+    <assignments>
+        <name>assignAddChurn</name>
+        <label>Add to Churn Amount</label>
+        <locationX>1400</locationX>
+        <locationY>240</locationY>
+        <assignmentItems>
+            <assignToReference>varChurn</assignToReference>
+            <operator>Add</operator>
+            <value><elementReference>frmChurnARR1</elementReference></value>
+        </assignmentItems>
+        <connector><targetReference>loopLines1</targetReference></connector>
+    </assignments>
+
+    <!-- Loop 2: Multiplier assignments -->
+    <assignments>
+        <name>assignMult12b</name>
+        <label>Multiplier = 12 (Monthly, Pass 2)</label>
+        <locationX>650</locationX>
+        <locationY>350</locationY>
+        <assignmentItems>
+            <assignToReference>varMultiplier</assignToReference>
+            <operator>Assign</operator>
+            <value><numberValue>12</numberValue></value>
+        </assignmentItems>
+        <connector><targetReference>decY1</targetReference></connector>
+    </assignments>
+
+    <assignments>
+        <name>assignMult4b</name>
+        <label>Multiplier = 4 (Quarterly, Pass 2)</label>
+        <locationX>650</locationX>
+        <locationY>420</locationY>
+        <assignmentItems>
+            <assignToReference>varMultiplier</assignToReference>
+            <operator>Assign</operator>
+            <value><numberValue>4</numberValue></value>
+        </assignmentItems>
+        <connector><targetReference>decY1</targetReference></connector>
+    </assignments>
+
+    <assignments>
+        <name>assignMult2b</name>
+        <label>Multiplier = 2 (SemiAnnual, Pass 2)</label>
+        <locationX>650</locationX>
+        <locationY>490</locationY>
+        <assignmentItems>
+            <assignToReference>varMultiplier</assignToReference>
+            <operator>Assign</operator>
+            <value><numberValue>2</numberValue></value>
+        </assignmentItems>
+        <connector><targetReference>decY1</targetReference></connector>
+    </assignments>
+
+    <assignments>
+        <name>assignMult1b</name>
+        <label>Multiplier = 1 (Annual, Pass 2)</label>
+        <locationX>650</locationX>
+        <locationY>560</locationY>
+        <assignmentItems>
+            <assignToReference>varMultiplier</assignToReference>
+            <operator>Assign</operator>
+            <value><numberValue>1</numberValue></value>
+        </assignmentItems>
+        <connector><targetReference>decY1</targetReference></connector>
+    </assignments>
+
+    <!-- Loop 2: Year bucket assignments -->
+    <assignments>
+        <name>assignAddY1</name>
+        <label>Add to Year 1 ARR</label>
+        <locationX>950</locationX>
+        <locationY>360</locationY>
+        <assignmentItems>
+            <assignToReference>varY1ARR</assignToReference>
+            <operator>Add</operator>
+            <value><elementReference>frmLineARR2</elementReference></value>
+        </assignmentItems>
+        <connector><targetReference>decY2</targetReference></connector>
+    </assignments>
+
+    <assignments>
+        <name>assignAddY2</name>
+        <label>Add to Year 2 ARR</label>
+        <locationX>1250</locationX>
+        <locationY>360</locationY>
+        <assignmentItems>
+            <assignToReference>varY2ARR</assignToReference>
+            <operator>Add</operator>
+            <value><elementReference>frmLineARR2</elementReference></value>
+        </assignmentItems>
+        <connector><targetReference>decY3</targetReference></connector>
+    </assignments>
+
+    <assignments>
+        <name>assignAddY3</name>
+        <label>Add to Year 3 ARR</label>
+        <locationX>1550</locationX>
+        <locationY>360</locationY>
+        <assignmentItems>
+            <assignToReference>varY3ARR</assignToReference>
+            <operator>Add</operator>
+            <value><elementReference>frmLineARR2</elementReference></value>
+        </assignmentItems>
+        <connector><targetReference>loopLines2</targetReference></connector>
+    </assignments>
+
+    <!-- ═══════════════════════════════════════
+         DECISIONS (all grouped)
+    ═══════════════════════════════════════ -->
+
+    <!-- Loop 1: BillingFrequency decision -->
+    <decisions>
+        <name>decBillingFreq1</name>
+        <label>Billing Frequency (Pass 1)</label>
+        <locationX>500</locationX>
+        <locationY>50</locationY>
+        <defaultConnector>
+            <targetReference>assignMult1</targetReference>
+        </defaultConnector>
+        <defaultConnectorLabel>Annual (default)</defaultConnectorLabel>
+        <rules>
+            <name>ruleMonthly1</name>
+            <conditionLogic>and</conditionLogic>
+            <conditions>
+                <leftValueReference>loopLines1.BillingFrequency</leftValueReference>
+                <operator>EqualTo</operator>
+                <rightValue><stringValue>Monthly</stringValue></rightValue>
+            </conditions>
+            <connector><targetReference>assignMult12</targetReference></connector>
+            <label>Monthly</label>
+        </rules>
+        <rules>
+            <name>ruleQuarterly1</name>
+            <conditionLogic>and</conditionLogic>
+            <conditions>
+                <leftValueReference>loopLines1.BillingFrequency</leftValueReference>
+                <operator>EqualTo</operator>
+                <rightValue><stringValue>Quarterly</stringValue></rightValue>
+            </conditions>
+            <connector><targetReference>assignMult4</targetReference></connector>
+            <label>Quarterly</label>
+        </rules>
+        <rules>
+            <name>ruleSemiAnnual1</name>
+            <conditionLogic>and</conditionLogic>
+            <conditions>
+                <leftValueReference>loopLines1.BillingFrequency</leftValueReference>
+                <operator>EqualTo</operator>
+                <rightValue><stringValue>SemiAnnual</stringValue></rightValue>
+            </conditions>
+            <connector><targetReference>assignMult2</targetReference></connector>
+            <label>SemiAnnual</label>
+        </rules>
+    </decisions>
+
+    <!-- Loop 1: Update quote start date? -->
+    <decisions>
+        <name>decUpdateStart</name>
+        <label>Update Quote Start Date?</label>
+        <locationX>800</locationX>
+        <locationY>50</locationY>
+        <defaultConnector>
+            <targetReference>assignTotals</targetReference>
+        </defaultConnector>
+        <defaultConnectorLabel>No Update</defaultConnectorLabel>
+        <rules>
+            <name>ruleUpdateStart</name>
+            <conditionLogic>or</conditionLogic>
+            <conditions>
+                <leftValueReference>varQuoteStart</leftValueReference>
+                <operator>IsNull</operator>
+                <rightValue><booleanValue>true</booleanValue></rightValue>
+            </conditions>
+            <conditions>
+                <leftValueReference>loopLines1.StartDate</leftValueReference>
+                <operator>LessThan</operator>
+                <rightValue><elementReference>varQuoteStart</elementReference></rightValue>
+            </conditions>
+            <connector><targetReference>assignUpdateStart</targetReference></connector>
+            <label>Yes — Earlier or First</label>
+        </rules>
+    </decisions>
+
+    <!-- Loop 1: Line classification -->
+    <decisions>
+        <name>decClassify</name>
+        <label>Classify Line</label>
+        <locationX>1250</locationX>
+        <locationY>50</locationY>
+        <defaultConnector>
+            <targetReference>assignAddChurn</targetReference>
+        </defaultConnector>
+        <defaultConnectorLabel>Churn</defaultConnectorLabel>
+        <rules>
+            <!-- New: StartingQuantity is null or 0 -->
+            <name>ruleNew</name>
+            <conditionLogic>or</conditionLogic>
+            <conditions>
+                <leftValueReference>loopLines1.StartQuantity</leftValueReference>
+                <operator>IsNull</operator>
+                <rightValue><booleanValue>true</booleanValue></rightValue>
+            </conditions>
+            <conditions>
+                <leftValueReference>loopLines1.StartQuantity</leftValueReference>
+                <operator>EqualTo</operator>
+                <rightValue><numberValue>0</numberValue></rightValue>
+            </conditions>
+            <connector><targetReference>assignAddNew</targetReference></connector>
+            <label>New</label>
+        </rules>
+        <rules>
+            <!-- Renewed: Quantity = StartingQuantity > 0 -->
+            <name>ruleRenewed</name>
+            <conditionLogic>and</conditionLogic>
+            <conditions>
+                <leftValueReference>loopLines1.Quantity</leftValueReference>
+                <operator>EqualTo</operator>
+                <rightValue><elementReference>loopLines1.StartQuantity</elementReference></rightValue>
+            </conditions>
+            <conditions>
+                <leftValueReference>loopLines1.StartQuantity</leftValueReference>
+                <operator>GreaterThan</operator>
+                <rightValue><numberValue>0</numberValue></rightValue>
+            </conditions>
+            <connector><targetReference>assignAddRenewed</targetReference></connector>
+            <label>Renewed</label>
+        </rules>
+        <rules>
+            <!-- Upsell: Quantity > StartingQuantity > 0 -->
+            <name>ruleUpsell</name>
+            <conditionLogic>and</conditionLogic>
+            <conditions>
+                <leftValueReference>loopLines1.Quantity</leftValueReference>
+                <operator>GreaterThan</operator>
+                <rightValue><elementReference>loopLines1.StartQuantity</elementReference></rightValue>
+            </conditions>
+            <conditions>
+                <leftValueReference>loopLines1.StartQuantity</leftValueReference>
+                <operator>GreaterThan</operator>
+                <rightValue><numberValue>0</numberValue></rightValue>
+            </conditions>
+            <connector><targetReference>assignAddUpsell</targetReference></connector>
+            <label>Upsell</label>
+        </rules>
+    </decisions>
+
+    <!-- Loop 2: BillingFrequency decision -->
+    <decisions>
+        <name>decBillingFreq2</name>
+        <label>Billing Frequency (Pass 2)</label>
+        <locationX>500</locationX>
+        <locationY>400</locationY>
+        <defaultConnector>
+            <targetReference>assignMult1b</targetReference>
+        </defaultConnector>
+        <defaultConnectorLabel>Annual (default)</defaultConnectorLabel>
+        <rules>
+            <name>ruleMonthly2</name>
+            <conditionLogic>and</conditionLogic>
+            <conditions>
+                <leftValueReference>loopLines2.BillingFrequency</leftValueReference>
+                <operator>EqualTo</operator>
+                <rightValue><stringValue>Monthly</stringValue></rightValue>
+            </conditions>
+            <connector><targetReference>assignMult12b</targetReference></connector>
+            <label>Monthly</label>
+        </rules>
+        <rules>
+            <name>ruleQuarterly2</name>
+            <conditionLogic>and</conditionLogic>
+            <conditions>
+                <leftValueReference>loopLines2.BillingFrequency</leftValueReference>
+                <operator>EqualTo</operator>
+                <rightValue><stringValue>Quarterly</stringValue></rightValue>
+            </conditions>
+            <connector><targetReference>assignMult4b</targetReference></connector>
+            <label>Quarterly</label>
+        </rules>
+        <rules>
+            <name>ruleSemiAnnual2</name>
+            <conditionLogic>and</conditionLogic>
+            <conditions>
+                <leftValueReference>loopLines2.BillingFrequency</leftValueReference>
+                <operator>EqualTo</operator>
+                <rightValue><stringValue>SemiAnnual</stringValue></rightValue>
+            </conditions>
+            <connector><targetReference>assignMult2b</targetReference></connector>
+            <label>SemiAnnual</label>
+        </rules>
+    </decisions>
+
+    <!-- Loop 2: Year 1 overlap check -->
+    <decisions>
+        <name>decY1</name>
+        <label>Overlaps Year 1?</label>
+        <locationX>800</locationX>
+        <locationY>400</locationY>
+        <defaultConnector>
+            <targetReference>decY2</targetReference>
+        </defaultConnector>
+        <defaultConnectorLabel>No</defaultConnectorLabel>
+        <rules>
+            <name>ruleY1</name>
+            <conditionLogic>and</conditionLogic>
+            <conditions>
+                <leftValueReference>loopLines2.StartDate</leftValueReference>
+                <operator>LessThan</operator>
+                <rightValue><elementReference>frmY1End</elementReference></rightValue>
+            </conditions>
+            <conditions>
+                <leftValueReference>loopLines2.EndDate</leftValueReference>
+                <operator>GreaterThan</operator>
+                <rightValue><elementReference>varQuoteStart</elementReference></rightValue>
+            </conditions>
+            <connector><targetReference>assignAddY1</targetReference></connector>
+            <label>Yes</label>
+        </rules>
+    </decisions>
+
+    <!-- Loop 2: Year 2 overlap check -->
+    <decisions>
+        <name>decY2</name>
+        <label>Overlaps Year 2?</label>
+        <locationX>1100</locationX>
+        <locationY>400</locationY>
+        <defaultConnector>
+            <targetReference>decY3</targetReference>
+        </defaultConnector>
+        <defaultConnectorLabel>No</defaultConnectorLabel>
+        <rules>
+            <name>ruleY2</name>
+            <conditionLogic>and</conditionLogic>
+            <conditions>
+                <leftValueReference>loopLines2.StartDate</leftValueReference>
+                <operator>LessThan</operator>
+                <rightValue><elementReference>frmY2End</elementReference></rightValue>
+            </conditions>
+            <conditions>
+                <leftValueReference>loopLines2.EndDate</leftValueReference>
+                <operator>GreaterThan</operator>
+                <rightValue><elementReference>frmY1End</elementReference></rightValue>
+            </conditions>
+            <connector><targetReference>assignAddY2</targetReference></connector>
+            <label>Yes</label>
+        </rules>
+    </decisions>
+
+    <!-- Loop 2: Year 3 overlap check -->
+    <decisions>
+        <name>decY3</name>
+        <label>Overlaps Year 3?</label>
+        <locationX>1400</locationX>
+        <locationY>400</locationY>
+        <defaultConnector>
+            <targetReference>loopLines2</targetReference>
+        </defaultConnector>
+        <defaultConnectorLabel>No</defaultConnectorLabel>
+        <rules>
+            <name>ruleY3</name>
+            <conditionLogic>and</conditionLogic>
+            <conditions>
+                <leftValueReference>loopLines2.StartDate</leftValueReference>
+                <operator>LessThan</operator>
+                <rightValue><elementReference>frmY3End</elementReference></rightValue>
+            </conditions>
+            <conditions>
+                <leftValueReference>loopLines2.EndDate</leftValueReference>
+                <operator>GreaterThan</operator>
+                <rightValue><elementReference>frmY2End</elementReference></rightValue>
+            </conditions>
+            <connector><targetReference>assignAddY3</targetReference></connector>
+            <label>Yes</label>
+        </rules>
+    </decisions>
+
+    <!-- ═══════════════════════════════════════
+         FORMULAS (all grouped)
+    ═══════════════════════════════════════ -->
+
+    <formulas>
+        <name>frmLineARR1</name>
+        <dataType>Currency</dataType>
+        <scale>2</scale>
+        <expression>{!loopLines1.NetUnitPrice} * {!loopLines1.Quantity} * {!varMultiplier}</expression>
+    </formulas>
+
+    <formulas>
+        <name>frmUpsellARR1</name>
+        <dataType>Currency</dataType>
+        <scale>2</scale>
+        <expression>({!loopLines1.Quantity} - {!loopLines1.StartQuantity}) * {!loopLines1.NetUnitPrice} * {!varMultiplier}</expression>
+    </formulas>
+
+    <formulas>
+        <name>frmChurnARR1</name>
+        <dataType>Currency</dataType>
+        <scale>2</scale>
+        <expression>({!loopLines1.StartQuantity} - {!loopLines1.Quantity}) * {!loopLines1.NetUnitPrice} * {!varMultiplier}</expression>
+    </formulas>
+
+    <formulas>
+        <name>frmLineARR2</name>
+        <dataType>Currency</dataType>
+        <scale>2</scale>
+        <expression>{!loopLines2.NetUnitPrice} * {!loopLines2.Quantity} * {!varMultiplier}</expression>
+    </formulas>
+
+    <formulas>
+        <name>frmY1End</name>
+        <dataType>Date</dataType>
+        <expression>ADDMONTHS({!varQuoteStart}, 12)</expression>
+    </formulas>
+
+    <formulas>
+        <name>frmY2End</name>
+        <dataType>Date</dataType>
+        <expression>ADDMONTHS({!varQuoteStart}, 24)</expression>
+    </formulas>
+
+    <formulas>
+        <name>frmY3End</name>
+        <dataType>Date</dataType>
+        <expression>ADDMONTHS({!varQuoteStart}, 36)</expression>
+    </formulas>
+
+    <!-- ═══════════════════════════════════════
+         LOOPS (all grouped)
+    ═══════════════════════════════════════ -->
+
+    <loops>
+        <name>loopLines1</name>
+        <label>Loop Lines — Pass 1</label>
+        <locationX>350</locationX>
+        <locationY>50</locationY>
+        <collectionReference>colQuoteLines</collectionReference>
+        <iterationOrder>Asc</iterationOrder>
+        <nextValueConnector>
+            <targetReference>decBillingFreq1</targetReference>
+        </nextValueConnector>
+        <noMoreValuesConnector>
+            <targetReference>loopLines2</targetReference>
+        </noMoreValuesConnector>
+    </loops>
+
+    <loops>
+        <name>loopLines2</name>
+        <label>Loop Lines — Pass 2 (Year Windows)</label>
+        <locationX>350</locationX>
+        <locationY>400</locationY>
+        <collectionReference>colQuoteLines</collectionReference>
+        <iterationOrder>Asc</iterationOrder>
+        <nextValueConnector>
+            <targetReference>decBillingFreq2</targetReference>
+        </nextValueConnector>
+        <noMoreValuesConnector>
+            <targetReference>updateQuote</targetReference>
+        </noMoreValuesConnector>
+    </loops>
+
+    <!-- ═══════════════════════════════════════
+         RECORD LOOKUPS
+    ═══════════════════════════════════════ -->
+
+    <recordLookups>
+        <name>getQuoteLines</name>
+        <label>Get Quote Line Items</label>
+        <locationX>200</locationX>
+        <locationY>50</locationY>
+        <connector>
+            <targetReference>loopLines1</targetReference>
+        </connector>
+        <filterLogic>and</filterLogic>
+        <filters>
+            <field>QuoteId</field>
+            <operator>EqualTo</operator>
+            <value>
+                <elementReference>varQuoteId</elementReference>
+            </value>
+        </filters>
+        <getFirstRecordOnly>false</getFirstRecordOnly>
+        <object>QuoteLineItem</object>
+        <outputReference>colQuoteLines</outputReference>
+        <queriedFields>Id</queriedFields>
+        <queriedFields>NetUnitPrice</queriedFields>
+        <queriedFields>NetTotalPrice</queriedFields>
+        <queriedFields>BillingFrequency</queriedFields>
+        <queriedFields>Quantity</queriedFields>
+        <queriedFields>StartQuantity</queriedFields>
+        <queriedFields>StartDate</queriedFields>
+        <queriedFields>EndDate</queriedFields>
+        <sortField>StartDate</sortField>
+        <sortOrder>Asc</sortOrder>
+    </recordLookups>
+
+    <!-- ═══════════════════════════════════════
+         RECORD UPDATES
+    ═══════════════════════════════════════ -->
+
+    <recordUpdates>
+        <name>updateQuote</name>
+        <label>Update Quote ARR Fields</label>
+        <locationX>350</locationX>
+        <locationY>700</locationY>
+        <filterLogic>and</filterLogic>
+        <filters>
+            <field>Id</field>
+            <operator>EqualTo</operator>
+            <value>
+                <elementReference>varQuoteId</elementReference>
+            </value>
+        </filters>
+        <inputAssignments>
+            <field>RRV_Total_ARR__c</field>
+            <value><elementReference>varTotalARR</elementReference></value>
+        </inputAssignments>
+        <inputAssignments>
+            <field>RRV_New_ARR__c</field>
+            <value><elementReference>varNewARR</elementReference></value>
+        </inputAssignments>
+        <inputAssignments>
+            <field>RRV_Renewed_ARR__c</field>
+            <value><elementReference>varRenewedARR</elementReference></value>
+        </inputAssignments>
+        <inputAssignments>
+            <field>RRV_Upsell_Amount__c</field>
+            <value><elementReference>varUpsell</elementReference></value>
+        </inputAssignments>
+        <inputAssignments>
+            <field>RRV_Churn_Amount__c</field>
+            <value><elementReference>varChurn</elementReference></value>
+        </inputAssignments>
+        <inputAssignments>
+            <field>RRV_Total_Contract_Value__c</field>
+            <value><elementReference>varTCV</elementReference></value>
+        </inputAssignments>
+        <inputAssignments>
+            <field>RRV_Year1_ARR__c</field>
+            <value><elementReference>varY1ARR</elementReference></value>
+        </inputAssignments>
+        <inputAssignments>
+            <field>RRV_Year2_ARR__c</field>
+            <value><elementReference>varY2ARR</elementReference></value>
+        </inputAssignments>
+        <inputAssignments>
+            <field>RRV_Year3_ARR__c</field>
+            <value><elementReference>varY3ARR</elementReference></value>
+        </inputAssignments>
+        <object>Quote</object>
+    </recordUpdates>
+
+    <!-- ═══════════════════════════════════════
+         VARIABLES (all grouped)
+    ═══════════════════════════════════════ -->
+
+    <variables>
+        <name>varQuoteId</name>
+        <dataType>String</dataType>
+        <isCollection>false</isCollection>
+        <isInput>true</isInput>
+        <isOutput>false</isOutput>
+    </variables>
+
+    <variables>
+        <name>varMultiplier</name>
+        <dataType>Number</dataType>
+        <isCollection>false</isCollection>
+        <isInput>false</isInput>
+        <isOutput>false</isOutput>
+        <scale>0</scale>
+        <value><numberValue>1</numberValue></value>
+    </variables>
+
+    <variables>
+        <name>varTotalARR</name>
+        <dataType>Currency</dataType>
+        <isCollection>false</isCollection>
+        <isInput>false</isInput>
+        <isOutput>false</isOutput>
+        <scale>2</scale>
+        <value><numberValue>0</numberValue></value>
+    </variables>
+
+    <variables>
+        <name>varNewARR</name>
+        <dataType>Currency</dataType>
+        <isCollection>false</isCollection>
+        <isInput>false</isInput>
+        <isOutput>false</isOutput>
+        <scale>2</scale>
+        <value><numberValue>0</numberValue></value>
+    </variables>
+
+    <variables>
+        <name>varRenewedARR</name>
+        <dataType>Currency</dataType>
+        <isCollection>false</isCollection>
+        <isInput>false</isInput>
+        <isOutput>false</isOutput>
+        <scale>2</scale>
+        <value><numberValue>0</numberValue></value>
+    </variables>
+
+    <variables>
+        <name>varUpsell</name>
+        <dataType>Currency</dataType>
+        <isCollection>false</isCollection>
+        <isInput>false</isInput>
+        <isOutput>false</isOutput>
+        <scale>2</scale>
+        <value><numberValue>0</numberValue></value>
+    </variables>
+
+    <variables>
+        <name>varChurn</name>
+        <dataType>Currency</dataType>
+        <isCollection>false</isCollection>
+        <isInput>false</isInput>
+        <isOutput>false</isOutput>
+        <scale>2</scale>
+        <value><numberValue>0</numberValue></value>
+    </variables>
+
+    <variables>
+        <name>varTCV</name>
+        <dataType>Currency</dataType>
+        <isCollection>false</isCollection>
+        <isInput>false</isInput>
+        <isOutput>false</isOutput>
+        <scale>2</scale>
+        <value><numberValue>0</numberValue></value>
+    </variables>
+
+    <variables>
+        <name>varQuoteStart</name>
+        <dataType>Date</dataType>
+        <isCollection>false</isCollection>
+        <isInput>false</isInput>
+        <isOutput>false</isOutput>
+    </variables>
+
+    <variables>
+        <name>varY1ARR</name>
+        <dataType>Currency</dataType>
+        <isCollection>false</isCollection>
+        <isInput>false</isInput>
+        <isOutput>false</isOutput>
+        <scale>2</scale>
+        <value><numberValue>0</numberValue></value>
+    </variables>
+
+    <variables>
+        <name>varY2ARR</name>
+        <dataType>Currency</dataType>
+        <isCollection>false</isCollection>
+        <isInput>false</isInput>
+        <isOutput>false</isOutput>
+        <scale>2</scale>
+        <value><numberValue>0</numberValue></value>
+    </variables>
+
+    <variables>
+        <name>varY3ARR</name>
+        <dataType>Currency</dataType>
+        <isCollection>false</isCollection>
+        <isInput>false</isInput>
+        <isOutput>false</isOutput>
+        <scale>2</scale>
+        <value><numberValue>0</numberValue></value>
+    </variables>
+
+    <variables>
+        <name>colQuoteLines</name>
+        <dataType>SObject</dataType>
+        <isCollection>true</isCollection>
+        <isInput>false</isInput>
+        <isOutput>false</isOutput>
+        <objectType>QuoteLineItem</objectType>
+    </variables>
+
+</Flow>

@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Flow xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>59.0</apiVersion>
+    <description>Screen flow launched from the Run ARR Calcs quick action on Quote. Calls the RRV_Calculate_Quote_ARR subflow and shows a confirmation screen.</description>
+    <environments>Default</environments>
+    <interviewLabel>RRV Run ARR Calcs {!$Flow.CurrentDateTime}</interviewLabel>
+    <label>RRV Run ARR Calcs</label>
+    <processMetadataValues>
+        <name>BuilderType</name>
+        <value><stringValue>LightningFlowBuilder</stringValue></value>
+    </processMetadataValues>
+    <processType>Flow</processType>
+    <start>
+        <locationX>50</locationX>
+        <locationY>50</locationY>
+        <connector>
+            <targetReference>subflowCalcARR</targetReference>
+        </connector>
+    </start>
+    <status>Active</status>
+
+    <!-- Input variable provided by the Lightning record action context -->
+    <variables>
+        <name>recordId</name>
+        <dataType>String</dataType>
+        <isCollection>false</isCollection>
+        <isInput>true</isInput>
+        <isOutput>false</isOutput>
+    </variables>
+
+    <!-- Call the calculation subflow -->
+    <subflows>
+        <name>subflowCalcARR</name>
+        <label>Calculate ARR</label>
+        <locationX>200</locationX>
+        <locationY>50</locationY>
+        <connector>
+            <targetReference>screenConfirmation</targetReference>
+        </connector>
+        <flowName>RRV_Calculate_Quote_ARR</flowName>
+        <inputAssignments>
+            <name>varQuoteId</name>
+            <value>
+                <elementReference>recordId</elementReference>
+            </value>
+        </inputAssignments>
+    </subflows>
+
+    <!-- Confirmation screen -->
+    <screens>
+        <name>screenConfirmation</name>
+        <label>ARR Calculated</label>
+        <locationX>350</locationX>
+        <locationY>50</locationY>
+        <allowBack>false</allowBack>
+        <allowFinish>true</allowFinish>
+        <allowPause>false</allowPause>
+        <fields>
+            <name>txtConfirmation</name>
+            <fieldText>&lt;p&gt;ARR fields have been calculated successfully.&lt;/p&gt;</fieldText>
+            <fieldType>DisplayText</fieldType>
+        </fields>
+        <nextOrFinishButtonLabel>OK</nextOrFinishButtonLabel>
+        <showFooter>true</showFooter>
+        <showHeader>false</showHeader>
+    </screens>
+
+</Flow>

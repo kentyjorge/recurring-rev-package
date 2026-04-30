@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>RRV_Renewed_ARR__c</fullName>
+    <label>Renewed ARR</label>
+    <type>Currency</type>
+    <precision>18</precision>
+    <scale>2</scale>
+    <externalId>false</externalId>
+    <trackHistory>false</trackHistory>
+    <description>ARR from lines where Quantity = StartingQuantity &gt; 0</description>
+</CustomField>

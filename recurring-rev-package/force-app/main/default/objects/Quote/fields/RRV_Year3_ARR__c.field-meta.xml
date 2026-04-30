@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>RRV_Year3_ARR__c</fullName>
+    <label>Year 3 ARR</label>
+    <type>Currency</type>
+    <precision>18</precision>
+    <scale>2</scale>
+    <externalId>false</externalId>
+    <trackHistory>false</trackHistory>
+    <description>ARR from lines overlapping months 25-36 from quote start</description>
+</CustomField>
