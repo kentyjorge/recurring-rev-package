@@ -23,6 +23,20 @@
          ASSIGNMENTS (all grouped)
     ═══════════════════════════════════════ -->
 
+    <!-- Loop 0: Update quote start date -->
+    <assignments>
+        <name>assignUpdateStart0</name>
+        <label>Set Quote Start Date (Loop 0)</label>
+        <locationX>650</locationX>
+        <locationY>50</locationY>
+        <assignmentItems>
+            <assignToReference>varQuoteStart</assignToReference>
+            <operator>Assign</operator>
+            <value><elementReference>loopLines0.StartDate</elementReference></value>
+        </assignmentItems>
+        <connector><targetReference>loopLines0</targetReference></connector>
+    </assignments>
+
     <!-- Loop 1: Multiplier assignments -->
     <assignments>
         <name>assignMult12</name>
@@ -34,7 +48,7 @@
             <operator>Assign</operator>
             <value><numberValue>12</numberValue></value>
         </assignmentItems>
-        <connector><targetReference>decUpdateStart</targetReference></connector>
+        <connector><targetReference>assignTCVOnly</targetReference></connector>
     </assignments>
 
     <assignments>
@@ -47,7 +61,7 @@
             <operator>Assign</operator>
             <value><numberValue>4</numberValue></value>
         </assignmentItems>
-        <connector><targetReference>decUpdateStart</targetReference></connector>
+        <connector><targetReference>assignTCVOnly</targetReference></connector>
     </assignments>
 
     <assignments>
@@ -60,7 +74,7 @@
             <operator>Assign</operator>
             <value><numberValue>2</numberValue></value>
         </assignmentItems>
-        <connector><targetReference>decUpdateStart</targetReference></connector>
+        <connector><targetReference>assignTCVOnly</targetReference></connector>
     </assignments>
 
     <assignments>
@@ -73,40 +87,35 @@
             <operator>Assign</operator>
             <value><numberValue>1</numberValue></value>
         </assignmentItems>
-        <connector><targetReference>decUpdateStart</targetReference></connector>
+        <connector><targetReference>assignTCVOnly</targetReference></connector>
     </assignments>
 
-    <!-- Loop 1: Update quote start date -->
+    <!-- Loop 1: Accumulate TCV (all lines, before Year 1 gate) -->
     <assignments>
-        <name>assignUpdateStart</name>
-        <label>Set Quote Start Date</label>
-        <locationX>950</locationX>
-        <locationY>0</locationY>
-        <assignmentItems>
-            <assignToReference>varQuoteStart</assignToReference>
-            <operator>Assign</operator>
-            <value><elementReference>loopLines1.StartDate</elementReference></value>
-        </assignmentItems>
-        <connector><targetReference>assignTotals</targetReference></connector>
-    </assignments>
-
-    <!-- Loop 1: Accumulate TotalARR + TCV -->
-    <assignments>
-        <name>assignTotals</name>
-        <label>Add to Total ARR and TCV</label>
-        <locationX>1100</locationX>
+        <name>assignTCVOnly</name>
+        <label>Add to TCV (All Lines)</label>
+        <locationX>800</locationX>
         <locationY>50</locationY>
-        <assignmentItems>
-            <assignToReference>varTotalARR</assignToReference>
-            <operator>Add</operator>
-            <value><elementReference>frmLineARR1</elementReference></value>
-        </assignmentItems>
         <assignmentItems>
             <assignToReference>varTCV</assignToReference>
             <operator>Add</operator>
             <value><elementReference>loopLines1.NetTotalPrice</elementReference></value>
         </assignmentItems>
-        <connector><targetReference>decClassify</targetReference></connector>
+        <connector><targetReference>decOverlapsY1</targetReference></connector>
+    </assignments>
+
+    <!-- Loop 1: Compute Avg ARR after Loop 2 -->
+    <assignments>
+        <name>assignAvgARR</name>
+        <label>Set Total ARR = Avg of Year Buckets</label>
+        <locationX>1100</locationX>
+        <locationY>50</locationY>
+        <assignmentItems>
+            <assignToReference>varTotalARR</assignToReference>
+            <operator>Assign</operator>
+            <value><elementReference>frmAvgARR</elementReference></value>
+        </assignmentItems>
+        <connector><targetReference>getOneTimeLines</targetReference></connector>
     </assignments>
 
     <!-- Loop 1: Classification bucket assignments -->
@@ -215,6 +224,20 @@
         <connector><targetReference>decY1</targetReference></connector>
     </assignments>
 
+    <!-- One-time lines: accumulate Non-Recurring Rev -->
+    <assignments>
+        <name>assignAddNonRecurring</name>
+        <label>Add to Non-Recurring Revenue</label>
+        <locationX>650</locationX>
+        <locationY>700</locationY>
+        <assignmentItems>
+            <assignToReference>varNonRecurringRev</assignToReference>
+            <operator>Add</operator>
+            <value><elementReference>loopOneTimeLines.NetTotalPrice</elementReference></value>
+        </assignmentItems>
+        <connector><targetReference>loopOneTimeLines</targetReference></connector>
+    </assignments>
+
     <!-- Loop 2: Year bucket assignments -->
     <assignments>
         <name>assignAddY1</name>
@@ -258,6 +281,34 @@
     <!-- ═══════════════════════════════════════
          DECISIONS (all grouped)
     ═══════════════════════════════════════ -->
+
+    <!-- Loop 0: Update quote start date? -->
+    <decisions>
+        <name>decUpdateStart0</name>
+        <label>Update Quote Start Date? (Loop 0)</label>
+        <locationX>500</locationX>
+        <locationY>50</locationY>
+        <defaultConnector>
+            <targetReference>loopLines0</targetReference>
+        </defaultConnector>
+        <defaultConnectorLabel>No Update</defaultConnectorLabel>
+        <rules>
+            <name>ruleUpdateStart0</name>
+            <conditionLogic>or</conditionLogic>
+            <conditions>
+                <leftValueReference>varQuoteStart</leftValueReference>
+                <operator>IsNull</operator>
+                <rightValue><booleanValue>true</booleanValue></rightValue>
+            </conditions>
+            <conditions>
+                <leftValueReference>loopLines0.StartDate</leftValueReference>
+                <operator>LessThan</operator>
+                <rightValue><elementReference>varQuoteStart</elementReference></rightValue>
+            </conditions>
+            <connector><targetReference>assignUpdateStart0</targetReference></connector>
+            <label>Yes — Earlier or First</label>
+        </rules>
+    </decisions>
 
     <!-- Loop 1: BillingFrequency decision -->
     <decisions>
@@ -304,31 +355,31 @@
         </rules>
     </decisions>
 
-    <!-- Loop 1: Update quote start date? -->
+    <!-- Loop 1: Does this line overlap Year 1? -->
     <decisions>
-        <name>decUpdateStart</name>
-        <label>Update Quote Start Date?</label>
-        <locationX>800</locationX>
+        <name>decOverlapsY1</name>
+        <label>Overlaps Year 1? (ARR Gate)</label>
+        <locationX>950</locationX>
         <locationY>50</locationY>
         <defaultConnector>
-            <targetReference>assignTotals</targetReference>
+            <targetReference>loopLines1</targetReference>
         </defaultConnector>
-        <defaultConnectorLabel>No Update</defaultConnectorLabel>
+        <defaultConnectorLabel>No — Skip ARR</defaultConnectorLabel>
         <rules>
-            <name>ruleUpdateStart</name>
-            <conditionLogic>or</conditionLogic>
-            <conditions>
-                <leftValueReference>varQuoteStart</leftValueReference>
-                <operator>IsNull</operator>
-                <rightValue><booleanValue>true</booleanValue></rightValue>
-            </conditions>
+            <name>ruleOverlapsY1</name>
+            <conditionLogic>and</conditionLogic>
             <conditions>
                 <leftValueReference>loopLines1.StartDate</leftValueReference>
                 <operator>LessThan</operator>
+                <rightValue><elementReference>frmY1End</elementReference></rightValue>
+            </conditions>
+            <conditions>
+                <leftValueReference>loopLines1.EndDate</leftValueReference>
+                <operator>GreaterThan</operator>
                 <rightValue><elementReference>varQuoteStart</elementReference></rightValue>
             </conditions>
-            <connector><targetReference>assignUpdateStart</targetReference></connector>
-            <label>Yes — Earlier or First</label>
+            <connector><targetReference>decClassify</targetReference></connector>
+            <label>Yes — Overlaps Year 1</label>
         </rules>
     </decisions>
 
@@ -574,13 +625,35 @@
         <expression>ADDMONTHS({!varQuoteStart}, 36)</expression>
     </formulas>
 
+    <formulas>
+        <name>frmAvgARR</name>
+        <dataType>Currency</dataType>
+        <scale>2</scale>
+        <expression>IF((IF({!varY1ARR} > 0, 1, 0) + IF({!varY2ARR} > 0, 1, 0) + IF({!varY3ARR} > 0, 1, 0)) = 0, 0, ({!varY1ARR} + {!varY2ARR} + {!varY3ARR}) / (IF({!varY1ARR} > 0, 1, 0) + IF({!varY2ARR} > 0, 1, 0) + IF({!varY3ARR} > 0, 1, 0)))</expression>
+    </formulas>
+
     <!-- ═══════════════════════════════════════
          LOOPS (all grouped)
     ═══════════════════════════════════════ -->
 
     <loops>
+        <name>loopLines0</name>
+        <label>Loop Lines — Pass 0 (Find Quote Start)</label>
+        <locationX>350</locationX>
+        <locationY>50</locationY>
+        <collectionReference>colQuoteLines</collectionReference>
+        <iterationOrder>Asc</iterationOrder>
+        <nextValueConnector>
+            <targetReference>decUpdateStart0</targetReference>
+        </nextValueConnector>
+        <noMoreValuesConnector>
+            <targetReference>loopLines1</targetReference>
+        </noMoreValuesConnector>
+    </loops>
+
+    <loops>
         <name>loopLines1</name>
-        <label>Loop Lines — Pass 1</label>
+        <label>Loop Lines — Pass 1 (ARR + Classify)</label>
         <locationX>350</locationX>
         <locationY>50</locationY>
         <collectionReference>colQuoteLines</collectionReference>
@@ -604,6 +677,21 @@
             <targetReference>decBillingFreq2</targetReference>
         </nextValueConnector>
         <noMoreValuesConnector>
+            <targetReference>assignAvgARR</targetReference>
+        </noMoreValuesConnector>
+    </loops>
+
+    <loops>
+        <name>loopOneTimeLines</name>
+        <label>Loop One-Time Lines</label>
+        <locationX>350</locationX>
+        <locationY>700</locationY>
+        <collectionReference>colOneTimeLines</collectionReference>
+        <iterationOrder>Asc</iterationOrder>
+        <nextValueConnector>
+            <targetReference>assignAddNonRecurring</targetReference>
+        </nextValueConnector>
+        <noMoreValuesConnector>
             <targetReference>updateQuote</targetReference>
         </noMoreValuesConnector>
     </loops>
@@ -613,12 +701,12 @@
     ═══════════════════════════════════════ -->
 
     <recordLookups>
-        <name>getQuoteLines</name>
-        <label>Get Quote Line Items</label>
+        <name>getOneTimeLines</name>
+        <label>Get One-Time Line Items</label>
         <locationX>200</locationX>
-        <locationY>50</locationY>
+        <locationY>700</locationY>
         <connector>
-            <targetReference>loopLines1</targetReference>
+            <targetReference>loopOneTimeLines</targetReference>
         </connector>
         <filterLogic>and</filterLogic>
         <filters>
@@ -626,6 +714,43 @@
             <operator>EqualTo</operator>
             <value>
                 <elementReference>varQuoteId</elementReference>
+            </value>
+        </filters>
+        <filters>
+            <field>BillingFrequency</field>
+            <operator>IsNull</operator>
+            <value>
+                <booleanValue>true</booleanValue>
+            </value>
+        </filters>
+        <getFirstRecordOnly>false</getFirstRecordOnly>
+        <object>QuoteLineItem</object>
+        <outputReference>colOneTimeLines</outputReference>
+        <queriedFields>Id</queriedFields>
+        <queriedFields>NetTotalPrice</queriedFields>
+    </recordLookups>
+
+    <recordLookups>
+        <name>getQuoteLines</name>
+        <label>Get Quote Line Items</label>
+        <locationX>200</locationX>
+        <locationY>50</locationY>
+        <connector>
+            <targetReference>loopLines0</targetReference>
+        </connector>
+        <filterLogic>and</filterLogic>
+        <filters>
+            <field>QuoteId</field>
+            <operator>EqualTo</operator>
+            <value>
+                <elementReference>varQuoteId</elementReference>
+            </value>
+        </filters>
+        <filters>
+            <field>BillingFrequency</field>
+            <operator>IsNull</operator>
+            <value>
+                <booleanValue>false</booleanValue>
             </value>
         </filters>
         <getFirstRecordOnly>false</getFirstRecordOnly>
@@ -695,6 +820,10 @@
         <inputAssignments>
             <field>RRV_Year3_ARR__c</field>
             <value><elementReference>varY3ARR</elementReference></value>
+        </inputAssignments>
+        <inputAssignments>
+            <field>RRV_NonRecurring_Rev__c</field>
+            <value><elementReference>varNonRecurringRev</elementReference></value>
         </inputAssignments>
         <object>Quote</object>
     </recordUpdates>
@@ -826,6 +955,25 @@
         <isInput>false</isInput>
         <isOutput>false</isOutput>
         <objectType>QuoteLineItem</objectType>
+    </variables>
+
+    <variables>
+        <name>colOneTimeLines</name>
+        <dataType>SObject</dataType>
+        <isCollection>true</isCollection>
+        <isInput>false</isInput>
+        <isOutput>false</isOutput>
+        <objectType>QuoteLineItem</objectType>
+    </variables>
+
+    <variables>
+        <name>varNonRecurringRev</name>
+        <dataType>Currency</dataType>
+        <isCollection>false</isCollection>
+        <isInput>false</isInput>
+        <isOutput>false</isOutput>
+        <scale>2</scale>
+        <value><numberValue>0</numberValue></value>
     </variables>
 
 </Flow>
