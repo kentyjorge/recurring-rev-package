@@ -24,7 +24,7 @@ force-app/main/default/
 
 | API Name | Label | Description |
 |----------|-------|-------------|
-| `RRV_Total_ARR__c` | Total ARR | Sum of annualized ARR across all lines |
+| `RRV_Total_ARR__c` | Total ARR | Weighted average ARR across non-zero year buckets (Y1+Y2+Y3 ÷ count of non-zero years) |
 | `RRV_New_ARR__c` | New ARR | Lines where StartQuantity = 0 or null |
 | `RRV_Renewed_ARR__c` | Renewed ARR | Lines where Quantity = StartQuantity > 0 |
 | `RRV_Upsell_Amount__c` | Upsell Amount | (Qty − StartQty) × unit price × multiplier |
@@ -63,18 +63,28 @@ force-app/main/default/
 
 ### Flow architecture
 
-**Loop 1** — ARR / TCV accumulation:
+**Loop 0** — Find quote start date:
+- Iterates all lines to find MIN(StartDate) → `varQuoteStart`
+
+**Loop 1** — TCV + ARR classification (Year 1 lines only):
 - Decision on `BillingFrequency` → set `varMultiplier`
-- Track `varQuoteStart` = MIN(StartDate) across lines
+- Accumulate `varTCV += NetTotalPrice` (all lines, unconditionally)
+- Gate: only lines overlapping Year 1 proceed to classification
 - Classify line (New / Renewed / Upsell / Churn) → accumulate into appropriate variable
-- Accumulate `varTCV += NetTotalPrice`
 
 **Loop 2** — Multi-year window (runs after Loop 1 so `varQuoteStart` is final):
 - Year boundaries: `ADDMONTHS(varQuoteStart, 12/24/36)`
 - Overlap check: `StartDate < yearEnd AND EndDate > yearStart`
-- A line can contribute to multiple years
+- A line can contribute to multiple year buckets (Y1, Y2, Y3)
 
-**Update Record** — writes all 9 fields to the Quote.
+**Post-Loop 2** — Total ARR formula (`frmAvgARR`):
+- `Total ARR = (Y1 + Y2 + Y3) ÷ count of non-zero year buckets`
+- Handles 1-, 2-, or 3-year deals correctly
+
+**One-Time Lines** — separate query for lines with null BillingFrequency:
+- Accumulates `varNonRecurringRev`
+
+**Update Record** — writes all 10 fields to the Quote.
 
 ---
 
@@ -94,7 +104,8 @@ sf project deploy start \
 ## Key Technical Decisions
 
 - **No Apex** — all logic in autolaunched Flow to keep it declarative and maintainable.
-- **Two-loop pattern** — Loop 2 for year windows runs after Loop 1 so `varQuoteStart` is correctly set to the earliest line start date before year boundary formulas are evaluated.
+- **Three-loop pattern** — Loop 0 finds `varQuoteStart` (MIN start date), Loop 1 accumulates TCV and classifies ARR for Year 1 lines, Loop 2 buckets lines into year windows. Separating Loop 0 ensures year boundaries are correct before any classification runs.
+- **Total ARR as weighted average** — `frmAvgARR` divides the sum of year buckets by the count of non-zero years, producing a correct average ARR for deals spanning 1, 2, or 3 years (not a simple accumulation).
 - **`StartQuantity` field name** — confirmed via `sf sobject describe` on this org; the plan originally referenced `StartingQuantity` which does not exist.
 - **Flow XML element grouping** — Salesforce Flow metadata requires all elements of the same type to be grouped together in the XML. Execution order is defined by connectors, not XML position.
 
@@ -108,3 +119,9 @@ sf project deploy start \
 - Fixed two deploy errors: Flow XML element grouping, `StartQuantity` field name
 - Added `Admin.profile-meta.xml` for field visibility
 - Initialized git repo and committed all files
+
+### Session 2 — 2026-07-28
+- Restructured Total ARR from Year-1-only accumulation to weighted average of year buckets
+- Added `frmAvgARR` formula and `assignAvgARR` element; removed `assignTotals`
+- Rewired Loop 2 exit → `assignAvgARR` → `getOneTimeLines`
+- Deployed and verified on `maintwo` org
